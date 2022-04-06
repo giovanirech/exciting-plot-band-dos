@@ -21,32 +21,32 @@ def read_bands_Ldiff(xml_file):
         
         key_element_symbol = bandstrucutre.findall('species')[species_i].attrib['chemicalSymbol']
         
-        N_atoms = len(bandstrucutre.findall('species')[species_i].getchildren())
+        N_atoms = len(list(bandstrucutre.findall('species')[species_i]))
         
         
         
         for atom_i in range(N_atoms):
         
-            bands = bandstrucutre.findall('species')[species_i].getchildren()[atom_i].getchildren() #todas as bandas do atomo
+            bands = list(list(bandstrucutre.findall('species')[species_i])[atom_i]) #todas as bandas do atomo
             #       ^root         ^species                      ^atom            ^bands
                        
             #lista de dicionarios. Cada dicionario é uma banda
             lista_bandas = []
             for band in bands:
-                distance = np.array([float(i.get('distance')) for i in band.getchildren()])
-                energy = np.array([float(i.get('eval'))+args.Eshift for i in band.getchildren()])
-                suml = np.array([float(i.get('sum')) for i in band.getchildren()])
-                inters = np.array([1-float(i.get('sum')) for i in band.getchildren()])
+                distance = np.array([float(i.get('distance')) for i in list(band)])
+                energy = np.array([float(i.get('eval'))+args.Eshift for i in list(band)])
+                suml = np.array([float(i.get('sum')) for i in list(band)])
+                inters = np.array([1-float(i.get('sum')) for i in list(band)])
                 banda = {'distance': np.array(distance),
                          'energy'  : np.array(energy),
                          'sum'     : np.array(suml),
                          'inters'  : np.array(inters)}
                 
                 #now lets get the bandstructures by orbital
-                Norb = len(band.getchildren()[0].getchildren()) #number of orbitals present in the file
+                Norb = len(list(list(band)[0])) #number of orbitals present in the file
                 orb_keys = ['s', 'p', 'd', 'f','g', 'h']
                 for norb in range(Norb):
-                    band_orbital = np.array([float(i.getchildren()[norb].get('character')) for i in band.getchildren()])
+                    band_orbital = np.array([float(list(i)[norb].get('character')) for i in list(band)])
                     banda[orb_keys[norb]] = np.array(band_orbital)
                 lista_bandas.append(banda)
             
@@ -71,7 +71,8 @@ def read_bands_Ldiff(xml_file):
 #from matplotlib.colors import to_rgba_array, to_rgb
 
 def plot_bandstructure_atoms(dictionary_species, vertice_coords, vertice_labels, 
-                             l_resolved ,output_file,elims, efermi, orbthickness, orbalpha, orbcolors,
+                             l_resolved ,output_file,elims, efermi, orbthickness,
+                             maxorbthickness, orbalpha, orbcolors,
                              linethickness, linealpha, linecolor):
     
     #plt.rc('font', family='QuattroCento Sans')
@@ -105,9 +106,10 @@ def plot_bandstructure_atoms(dictionary_species, vertice_coords, vertice_labels,
                 orbitals = ['s',  'p',  'd',  'f',  'g', 'h']
                 colors =   orbcolors
                 for i in range(Norbs):
+                    orbital_thickness = np.minimum(banda[orbitals[i]],len(banda[orbitals[i]])*[maxorbthickness])
                     l = ax0.fill_between(banda['distance'],
-                                         banda['energy']+multiplier*banda[orbitals[i]],
-                                         banda['energy']-multiplier*banda[orbitals[i]],
+                                         banda['energy']+multiplier*orbital_thickness,
+                                         banda['energy']-multiplier*orbital_thickness,
                                          color=colors[i], alpha = alpha_geral, lw=0.0)
         
             #dummy plot for legend purposes
@@ -172,6 +174,8 @@ if __name__=='__main__':
                        help='A shift in energy (in Ha) to be applied to all the data. This option is useful to undo any shift in energy (such as E-Ef). Default is 0.0.')
     parser.add_argument('-T','--orbthickness', type=float, action='store', default=0.1,
                        help='This value controls the relative thickness of the bands when L-resolved. the default is 0.1.')
+    parser.add_argument('-M','--maxorbthickness', type=float, action='store', default=np.inf,
+                       help='This value controls the maximum thickness of the bands when L-resolved. the default is no limit.')
     parser.add_argument('-t','--linethickness', type=float, action='store', default=0.2,
                        help='Controls the thickness of the main lines of the bandstructure. When the -N option is used, this is the only line shown. The default value is 0.2')
     parser.add_argument('-A','--orbalpha', type=float, action='store', default=0.3,
@@ -207,6 +211,7 @@ if __name__=='__main__':
                              elims = (args.Emin, args.Emax),
                              efermi = args.fermi,
                              orbthickness = args.orbthickness,
+                             maxorbthickness = args.maxorbthickness,
                              orbalpha = args.orbalpha, 
                              orbcolors = args.orbcolors,
                              linethickness = args.linethickness,
